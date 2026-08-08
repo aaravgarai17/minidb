@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests & coverage
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        run: pytest --cov=minidb --cov-report=term-missing --cov-fail-under=70 -q
+
+  compatibility:
+    name: Real Redis clients work against it
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Install redis-cli
+        run: sudo apt-get update && sudo apt-get install -y redis-tools
+
+      # The claim that justifies implementing RESP instead of a custom
+      # protocol: unmodified Redis tooling drives this server. Verified on
+      # every push rather than asserted in the README.
+      - name: Start minidb
+        run: |
+          python -m minidb.server --port 6380 --no-aof &
+          for i in $(seq 1 30); do
+            redis-cli -p 6380 PING 2>/dev/null | grep -q PONG && exit 0
+            sleep 1
+          done
+          echo "server did not start"; exit 1
+
+      - name: redis-cli round trip
+        run: |
+          redis-cli -p 6380 SET ci "works" | grep -q OK
+          redis-cli -p 6380 GET ci | grep -q works
+          redis-cli -p 6380 INCR n | grep -q 1
+          redis-cli -p 6380 DBSIZE
+
+      - name: redis-py round trip
+        run: |
+          python - <<'EOF'
+          import redis
+          r = redis.Redis(port=6380, decode_responses=True)
+          assert r.ping()
+          r.mset({"user:1": "a", "user:2": "b", "misc": "c"})
+          assert sorted(r.keys("user:*")) == ["user:1", "user:2"]
+          assert r.incr("counter") == 1
+          assert r.set("t", "v", ex=100) and 0 < r.ttl("t") <= 100
+          print("redis-py compatibility OK")
+          EOF
+
+  durability:
+    name: Data survives restart
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Write, restart, read back
+        run: |
+          python -m minidb.server --port 6381 --aof /tmp/ci.aof &
+          PID=$!
+          sleep 2
+          python -m minidb.cli --port 6381 SET durable yes
+          python -m minidb.cli --port 6381 SET temp deleteme
+          python -m minidb.cli --port 6381 DEL temp
+          kill -TERM $PID && wait $PID 2>/dev/null || true
+
+          python -m minidb.server --port 6382 --aof /tmp/ci.aof &
+          PID2=$!
+          sleep 2
+          python -m minidb.cli --port 6382 GET durable | grep -q yes
+          python -m minidb.cli --port 6382 GET temp | grep -q nil
+          kill -TERM $PID2 || true
+          echo "durability verified"
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose build minidb

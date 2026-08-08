@@ -1,0 +1,27 @@
+services:
+  minidb:
+    build: .
+    ports:
+      - "6380:6380"
+    volumes:
+      - minidb-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-m", "minidb.cli", "--port", "6380", "PING"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Real Redis, for the side-by-side benchmark. Same machine, same client,
+  # same protocol — the only variable is the server implementation.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  minidb-data:
