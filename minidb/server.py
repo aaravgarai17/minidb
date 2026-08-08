@@ -125,12 +125,26 @@ class MiniDBServer:
 
         for task in self._background:
             task.cancel()
+        # Await the cancellations. Cancelling only *requests* that a task stop;
+        # without awaiting, the loop can close while they're still unwinding,
+        # which asyncio reports as "Task was destroyed but it is pending!".
+        if self._background:
+            await asyncio.gather(*self._background, return_exceptions=True)
 
         if self._connections:
             log.info("draining %d connection(s)", len(self._connections))
-            await asyncio.wait(self._connections, timeout=5.0)
-            for task in self._connections:
+            # Give in-flight commands a chance to finish first — that's what
+            # makes the shutdown graceful rather than abrupt.
+            pending = list(self._connections)
+            await asyncio.wait(pending, timeout=5.0)
+
+            # Anything still running after the grace period gets cancelled,
+            # then awaited so it actually finishes unwinding.
+            stragglers = [t for t in pending if not t.done()]
+            for task in stragglers:
                 task.cancel()
+            if stragglers:
+                await asyncio.gather(*stragglers, return_exceptions=True)
 
         # Final fsync: makes "no acknowledged write is lost on clean shutdown"
         # true even under the everysec policy.

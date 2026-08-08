@@ -232,11 +232,14 @@ and `python -m bench.bench_server`.
 
 | Operation | Throughput |
 | --------- | ---------- |
-| `get` (hit) | 2,597,511 ops/sec |
-| `get` (miss) | 7,605,213 ops/sec |
-| `put` (no eviction) | 1,975,901 ops/sec |
-| `put` (evicting every time) | 1,680,502 ops/sec |
-| mixed 75% get / 25% put | 2,757,050 ops/sec |
+| `get` (hit) | **2,667,351 ops/sec** |
+| `get` (miss) | 8,073,143 ops/sec |
+| `put` (no eviction) | 1,924,314 ops/sec |
+| `put` (evicting every time) | 1,660,372 ops/sec |
+| mixed 75% get / 25% put | 2,885,868 ops/sec |
+
+Misses are fastest because a miss is a single failed hash lookup — no list
+splice, no pointer rewiring.
 
 ### Is it really O(1)?
 
@@ -244,15 +247,19 @@ Throughput while the cache grows 1000×:
 
 | Entries | Throughput |
 | ------- | ---------- |
-| 1,000 | 2,668,618 ops/sec |
-| 10,000 | 2,626,355 ops/sec |
-| 100,000 | 2,290,465 ops/sec |
-| 1,000,000 | 1,438,977 ops/sec |
+| 1,000 | 2,746,831 ops/sec |
+| 10,000 | 2,641,409 ops/sec |
+| 100,000 | 2,455,107 ops/sec |
+| 1,000,000 | 1,564,354 ops/sec |
 
-A 1000× size increase costs **1.85×** throughput. An O(n) implementation would
-be roughly 1000× slower. The residual decline is **CPU cache locality** — at a
-million entries the nodes no longer fit in L2/L3, so pointer chasing starts
-reaching main memory. That's a hardware effect, not an algorithmic one.
+**A 1000× size increase costs 1.76× throughput.** An O(n) implementation would
+be roughly 1000× slower — a naive LRU scanning a list to find the oldest entry
+would fall off a cliff somewhere between these rows.
+
+The residual decline is **CPU cache locality**, not algorithmic. At a million
+entries the nodes no longer fit in L2/L3, so pointer chasing starts reaching
+main memory. Being able to tell those two causes apart is the point of running
+the sweep rather than asserting the complexity.
 
 ### Over the network
 
