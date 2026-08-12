@@ -27,6 +27,9 @@ OK
 
 ## Verify it works (one command)
 
+> **Common tasks:** `make help` lists everything — `make install`, `make test`,
+> `make verify`, and per-project shortcuts.
+
 ```bash
 ./verify.sh
 ```

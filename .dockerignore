@@ -1,0 +1,32 @@
+# Everything here would otherwise be uploaded to the Docker daemon as build
+# context on every build — .venv and .git alone are usually hundreds of
+# megabytes, which slows builds and can leak local state into an image.
+
+.git
+.github
+.gitignore
+
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+
+.pytest_cache
+.coverage
+.coverage.*
+htmlcov
+coverage.xml
+
+# Local secrets must never reach an image layer.
+.env
+*.pem
+
+.DS_Store
+*.md
+!README.md
+
+data
+uploads
+*.aof
