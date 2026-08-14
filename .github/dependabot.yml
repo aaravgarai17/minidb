@@ -1,0 +1,38 @@
+# Dependency updates.
+#
+# Pinned requirements (fastapi==0.111.0 and so on) make builds reproducible,
+# which is the right default — but they also mean a security patch upstream
+# never reaches this repo unless someone bumps it by hand. Dependabot opens a
+# pull request when one lands, and CI decides whether it is safe to merge.
+#
+# Monthly rather than weekly: on a project this size, weekly produces more
+# noise than signal.
+
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      # One PR for routine bumps instead of five; security updates still
+      # arrive separately so they are not buried.
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "docker"
