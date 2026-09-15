@@ -24,4 +24,9 @@ USER appuser
 
 EXPOSE 6380
 
+# Health is "answers PING over RESP", which exercises the accept loop, the
+# protocol parser and the command path — not merely that the process is alive.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -m minidb.cli --port 6380 PING | grep -q PONG
+
 CMD ["python", "-m", "minidb.server", "--host", "0.0.0.0", "--port", "6380", "--aof", "/data/minidb.aof"]
