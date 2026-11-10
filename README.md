@@ -37,6 +37,7 @@ OK
 Starts the server, checks every claim below independently, and shuts down:
 
 ```
+ ✓ python and dependencies available
  ✓ all tests passed
  ✓ server is up on :6390
  ✓ SET works
@@ -52,7 +53,7 @@ Starts the server, checks every claim below independently, and shuts down:
  ✓ value restored from the append-only file
  ✓ the DEL was replayed too (not just the writes)
 
- Results: 14 passed, 0 failed
+ Results: 15 passed, 0 failed
 VERIFIED — every README claim checks out.
 ```
 
@@ -331,7 +332,7 @@ docker compose up --build               # minidb on :6380, real redis on :6379
 ## Tests
 
 ```bash
-pytest -q                               # 158 tests
+pytest -q                               # 186 tests
 pytest --cov=minidb --cov-report=term-missing
 ```
 
@@ -381,7 +382,7 @@ minidb/
 │   ├── aof.py         # append-only persistence, replay, compaction
 │   ├── cli.py         # interactive client
 │   └── config.py
-├── tests/             # 158 tests, no external services needed
+├── tests/             # 186 tests, no external services needed
 ├── bench/
 │   ├── bench_lru.py   # data structure in isolation
 │   └── bench_server.py# over TCP, and vs real Redis
